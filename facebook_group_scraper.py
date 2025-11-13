@@ -30,27 +30,47 @@ class FacebookGroupScraper:
         self.user_data_dir = user_data_dir or "./browser_data"
         self.browser: Browser = None
         self.page: Page = None
+        self.context = None
+        self.playwright = None
 
     async def init_browser(self):
         """Khởi tạo browser với Playwright"""
         print(f"{Fore.CYAN}🚀 Đang khởi động browser...")
 
-        playwright = await async_playwright().start()
+        try:
+            self.playwright = await async_playwright().start()
 
-        # Sử dụng persistent context để lưu cookies/session
-        self.context = await playwright.chromium.launch_persistent_context(
-            self.user_data_dir,
-            headless=self.headless,
-            args=[
-                '--disable-blink-features=AutomationControlled',
-                '--disable-dev-shm-usage',
-                '--no-sandbox',
-            ],
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        )
+            # Sử dụng persistent context để lưu cookies/session
+            self.context = await self.playwright.chromium.launch_persistent_context(
+                self.user_data_dir,
+                headless=self.headless,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                ],
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
 
-        self.page = await self.context.new_page()
-        print(f"{Fore.GREEN}✓ Browser đã sẵn sàng")
+            self.page = await self.context.new_page()
+            print(f"{Fore.GREEN}✓ Browser đã sẵn sàng")
+
+        except Exception as e:
+            error_msg = str(e)
+
+            # Check for missing dependencies error
+            if "missing dependencies" in error_msg.lower():
+                print(f"\n{Fore.RED}✗ Lỗi: Thiếu system dependencies để chạy browser")
+                print(f"\n{Fore.YELLOW}Giải pháp:")
+                print(f"{Fore.YELLOW}1. Chạy lệnh sau (cần sudo):")
+                print(f"{Fore.WHITE}   sudo playwright install-deps")
+                print(f"\n{Fore.YELLOW}2. Hoặc cài thủ công:")
+                print(f"{Fore.WHITE}   sudo apt-get install libnss3 libnspr4 libgbm1")
+                print(f"\n{Fore.YELLOW}3. Nếu không có sudo access (VD: trên JupyterLab):")
+                print(f"{Fore.WHITE}   - Thử chạy với headless=False (chọn 'n' khi hỏi)")
+                print(f"{Fore.WHITE}   - Hoặc liên hệ admin để cài dependencies")
+
+            raise
 
     async def check_login_status(self) -> bool:
         """Kiểm tra xem đã login Facebook chưa"""
@@ -379,6 +399,8 @@ class FacebookGroupScraper:
             # Cleanup
             if self.context:
                 await self.context.close()
+            if self.playwright:
+                await self.playwright.stop()
 
     def save_results(self, posts: List[dict], output_file: str = None):
         """

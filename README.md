@@ -59,6 +59,22 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+### Sử dụng Docker (không cần cài dependencies):
+
+Nếu bạn không có quyền sudo hoặc muốn chạy nhanh:
+
+```bash
+# Build Docker image
+docker-compose build
+
+# Chạy tool
+docker-compose run --rm facebook-scraper
+
+# Kết quả sẽ được lưu trong thư mục ./output
+```
+
+**Lưu ý**: Docker đã bao gồm sẵn tất cả dependencies, không cần cài thêm gì.
+
 ## 💡 Cách sử dụng
 
 ### Chạy tool:
@@ -119,6 +135,8 @@ lay-link-bai-viet-moi-facebook/
 ├── requirements.txt             # Python dependencies
 ├── setup.sh                     # Setup script cho Linux/Mac
 ├── setup.bat                    # Setup script cho Windows
+├── Dockerfile                   # Docker configuration
+├── docker-compose.yml           # Docker Compose configuration
 ├── README.md                    # File này
 ├── .gitignore                   # Git ignore rules
 ├── browser_data/                # Lưu cookies/session (tự tạo)
@@ -202,11 +220,33 @@ Tool có thể **thử** scrape mà không cần login, nhưng:
 
 ## 🔧 Troubleshooting
 
-### Không tìm thấy posts:
+### Lỗi "missing dependencies to run browsers":
 
-- Kiểm tra lại URL group
-- Đảm bảo đã login và là thành viên group
-- Thử chạy lại với chế độ hiện browser (`n`) để debug
+Đây là lỗi phổ biến nhất khi thiếu system dependencies.
+
+**Giải pháp 1 (Khuyến nghị - cần sudo):**
+
+```bash
+sudo playwright install-deps
+```
+
+**Giải pháp 2 (Cài thủ công):**
+
+```bash
+sudo apt-get install libnss3 libnspr4 libgbm1
+```
+
+**Giải pháp 3 (Không có sudo access):**
+
+Nếu bạn đang chạy trên môi trường như JupyterLab, Vertex AI, hoặc shared server mà không có sudo:
+
+1. **Liên hệ admin** để cài dependencies
+2. **Hoặc thử Docker** (xem phần Docker bên dưới)
+3. **Chạy trên máy local** có quyền admin
+
+**Lưu ý cho Vertex AI / JupyterLab users:**
+- Vertex AI notebooks thường không có đủ dependencies
+- Khuyến nghị chạy trên máy local hoặc VM có quyền sudo
 
 ### Browser không mở:
 
@@ -214,6 +254,12 @@ Tool có thể **thử** scrape mà không cần login, nhưng:
 # Cài lại Playwright browsers
 playwright install chromium
 ```
+
+### Không tìm thấy posts:
+
+- Kiểm tra lại URL group
+- Đảm bảo đã login và là thành viên group
+- Thử chạy lại với chế độ hiện browser (`n`) để debug
 
 ### Lỗi khi scroll:
 

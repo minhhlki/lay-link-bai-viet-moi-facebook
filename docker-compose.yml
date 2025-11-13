@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  facebook-scraper:
+    build: .
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./output:/app/output
+      - ./browser_data:/app/browser_data
+    environment:
+      - DISPLAY=${DISPLAY}
+    network_mode: host
+    shm_size: 2gb
