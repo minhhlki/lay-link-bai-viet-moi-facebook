@@ -59,6 +59,22 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+### Sử dụng Docker (không cần cài dependencies):
+
+Nếu bạn không có quyền sudo hoặc muốn chạy nhanh:
+
+```bash
+# Build Docker image
+docker-compose build
+
+# Chạy tool
+docker-compose run --rm facebook-scraper
+
+# Kết quả sẽ được lưu trong thư mục ./output
+```
+
+**Lưu ý**: Docker đã bao gồm sẵn tất cả dependencies, không cần cài thêm gì.
+
 ## 💡 Cách sử dụng
 
 ### Chạy tool:
@@ -82,24 +98,30 @@ python facebook_group_scraper.py
    - Mặc định: 7 ngày (1 tuần)
    - Có thể nhập số khác (VD: 14, 30)
 
-3. **Chọn chế độ browser**
+3. **Chọn loại group**
+   - `y`: Group công khai (PUBLIC) - Thử không cần login
+   - `n` (mặc định): Group riêng tư - Cần login
+   - **Lưu ý**: Ngay cả public groups, Facebook đôi khi vẫn yêu cầu login
+
+4. **Chọn chế độ browser**
    - `n` (mặc định): Hiện browser - Dễ theo dõi và debug
    - `y`: Ẩn browser - Chạy nhanh hơn
 
-4. **Login Facebook** (chỉ lần đầu tiên)
+5. **Login Facebook** (nếu cần)
+   - Chỉ lần đầu tiên (hoặc nếu group không phải public)
    - Browser sẽ mở Facebook
    - Đăng nhập tài khoản của bạn
    - Nhấn Enter trong terminal sau khi login xong
    - Session sẽ được lưu lại, không cần login lại lần sau
 
-5. **Đợi tool chạy**
+6. **Đợi tool chạy**
    - Tool sẽ tự động:
      - Truy cập group
      - Scroll và load tất cả posts
      - Extract links và thông tin
      - Lưu kết quả
 
-6. **Xem kết quả**
+7. **Xem kết quả**
    - Hiển thị trên terminal
    - Lưu trong thư mục `output/`
      - `posts_YYYYMMDD_HHMMSS.json` - File JSON đầy đủ thông tin
@@ -113,6 +135,8 @@ lay-link-bai-viet-moi-facebook/
 ├── requirements.txt             # Python dependencies
 ├── setup.sh                     # Setup script cho Linux/Mac
 ├── setup.bat                    # Setup script cho Windows
+├── Dockerfile                   # Docker configuration
+├── docker-compose.yml           # Docker Compose configuration
 ├── README.md                    # File này
 ├── .gitignore                   # Git ignore rules
 ├── browser_data/                # Lưu cookies/session (tự tạo)
@@ -147,9 +171,32 @@ https://www.facebook.com/groups/123456789/posts/987654323
 ...
 ```
 
+## 🌍 Public Groups vs Private Groups
+
+### Public Groups (Groups công khai):
+
+Tool có thể **thử** scrape mà không cần login, nhưng:
+
+**Ưu điểm**:
+- Không cần tài khoản Facebook
+- Không lo bị rate limit trên account
+
+**Nhược điểm**:
+- Facebook thường vẫn yêu cầu login sau vài posts
+- Không scroll được nhiều
+- Có thể bị block nhanh hơn
+
+**Khuyến nghị**: Nên login ngay cả với public groups để lấy được nhiều posts hơn
+
+### Private Groups (Groups riêng tư):
+
+**Bắt buộc** phải login bằng tài khoản đã tham gia group
+
 ## ⚠️ Lưu ý quan trọng
 
-1. **Tài khoản Facebook**: Cần tài khoản Facebook đã tham gia group muốn scrape
+1. **Tài khoản Facebook**:
+   - **Private groups**: Bắt buộc phải có tài khoản đã tham gia
+   - **Public groups**: Không bắt buộc nhưng khuyến nghị để lấy đầy đủ posts
 
 2. **Rate limiting**: Facebook có thể chặn nếu:
    - Scrape quá nhiều/quá nhanh
@@ -173,11 +220,33 @@ https://www.facebook.com/groups/123456789/posts/987654323
 
 ## 🔧 Troubleshooting
 
-### Không tìm thấy posts:
+### Lỗi "missing dependencies to run browsers":
 
-- Kiểm tra lại URL group
-- Đảm bảo đã login và là thành viên group
-- Thử chạy lại với chế độ hiện browser (`n`) để debug
+Đây là lỗi phổ biến nhất khi thiếu system dependencies.
+
+**Giải pháp 1 (Khuyến nghị - cần sudo):**
+
+```bash
+sudo playwright install-deps
+```
+
+**Giải pháp 2 (Cài thủ công):**
+
+```bash
+sudo apt-get install libnss3 libnspr4 libgbm1
+```
+
+**Giải pháp 3 (Không có sudo access):**
+
+Nếu bạn đang chạy trên môi trường như JupyterLab, Vertex AI, hoặc shared server mà không có sudo:
+
+1. **Liên hệ admin** để cài dependencies
+2. **Hoặc thử Docker** (xem phần Docker bên dưới)
+3. **Chạy trên máy local** có quyền admin
+
+**Lưu ý cho Vertex AI / JupyterLab users:**
+- Vertex AI notebooks thường không có đủ dependencies
+- Khuyến nghị chạy trên máy local hoặc VM có quyền sudo
 
 ### Browser không mở:
 
@@ -185,6 +254,12 @@ https://www.facebook.com/groups/123456789/posts/987654323
 # Cài lại Playwright browsers
 playwright install chromium
 ```
+
+### Không tìm thấy posts:
+
+- Kiểm tra lại URL group
+- Đảm bảo đã login và là thành viên group
+- Thử chạy lại với chế độ hiện browser (`n`) để debug
 
 ### Lỗi khi scroll:
 

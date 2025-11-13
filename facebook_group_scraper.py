@@ -30,27 +30,47 @@ class FacebookGroupScraper:
         self.user_data_dir = user_data_dir or "./browser_data"
         self.browser: Browser = None
         self.page: Page = None
+        self.context = None
+        self.playwright = None
 
     async def init_browser(self):
         """Khởi tạo browser với Playwright"""
         print(f"{Fore.CYAN}🚀 Đang khởi động browser...")
 
-        playwright = await async_playwright().start()
+        try:
+            self.playwright = await async_playwright().start()
 
-        # Sử dụng persistent context để lưu cookies/session
-        self.context = await playwright.chromium.launch_persistent_context(
-            self.user_data_dir,
-            headless=self.headless,
-            args=[
-                '--disable-blink-features=AutomationControlled',
-                '--disable-dev-shm-usage',
-                '--no-sandbox',
-            ],
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        )
+            # Sử dụng persistent context để lưu cookies/session
+            self.context = await self.playwright.chromium.launch_persistent_context(
+                self.user_data_dir,
+                headless=self.headless,
+                args=[
+                    '--disable-blink-features=AutomationControlled',
+                    '--disable-dev-shm-usage',
+                    '--no-sandbox',
+                ],
+                user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            )
 
-        self.page = await self.context.new_page()
-        print(f"{Fore.GREEN}✓ Browser đã sẵn sàng")
+            self.page = await self.context.new_page()
+            print(f"{Fore.GREEN}✓ Browser đã sẵn sàng")
+
+        except Exception as e:
+            error_msg = str(e)
+
+            # Check for missing dependencies error
+            if "missing dependencies" in error_msg.lower():
+                print(f"\n{Fore.RED}✗ Lỗi: Thiếu system dependencies để chạy browser")
+                print(f"\n{Fore.YELLOW}Giải pháp:")
+                print(f"{Fore.YELLOW}1. Chạy lệnh sau (cần sudo):")
+                print(f"{Fore.WHITE}   sudo playwright install-deps")
+                print(f"\n{Fore.YELLOW}2. Hoặc cài thủ công:")
+                print(f"{Fore.WHITE}   sudo apt-get install libnss3 libnspr4 libgbm1")
+                print(f"\n{Fore.YELLOW}3. Nếu không có sudo access (VD: trên JupyterLab):")
+                print(f"{Fore.WHITE}   - Thử chạy với headless=False (chọn 'n' khi hỏi)")
+                print(f"{Fore.WHITE}   - Hoặc liên hệ admin để cài dependencies")
+
+            raise
 
     async def check_login_status(self) -> bool:
         """Kiểm tra xem đã login Facebook chưa"""
@@ -289,13 +309,37 @@ class FacebookGroupScraper:
         else:
             return "Vừa xong"
 
-    async def scrape_group(self, group_url: str, days: int = 7) -> List[dict]:
+    async def check_if_login_required(self) -> bool:
+        """
+        Kiểm tra xem page hiện tại có yêu cầu login không
+
+        Returns:
+            True nếu cần login, False nếu không
+        """
+        try:
+            current_url = self.page.url
+            page_content = await self.page.content()
+
+            # Kiểm tra các dấu hiệu cần login
+            login_indicators = [
+                'login' in current_url.lower(),
+                'login_attempt' in current_url.lower(),
+                'id="login_form"' in page_content,
+                'name="login"' in page_content,
+            ]
+
+            return any(login_indicators)
+        except:
+            return False
+
+    async def scrape_group(self, group_url: str, days: int = 7, skip_login: bool = False) -> List[dict]:
         """
         Main method để scrape Facebook group
 
         Args:
             group_url: URL của Facebook group
             days: Số ngày lấy posts (mặc định 7)
+            skip_login: Thử scrape mà không login (cho public groups)
 
         Returns:
             List các posts
@@ -307,8 +351,13 @@ class FacebookGroupScraper:
             # Kiểm tra login status
             is_logged_in = await self.check_login_status()
 
-            if not is_logged_in:
+            # Nếu không skip login và chưa login -> yêu cầu login
+            if not skip_login and not is_logged_in:
                 await self.wait_for_login()
+
+            # Nếu skip login
+            if skip_login and not is_logged_in:
+                print(f"{Fore.CYAN}🔓 Thử truy cập public group mà không login...")
 
             # Navigate đến group
             print(f"\n{Fore.CYAN}🌐 Đang truy cập group: {group_url}")
@@ -316,6 +365,24 @@ class FacebookGroupScraper:
 
             # Đợi page load
             await asyncio.sleep(3)
+
+            # Kiểm tra xem có bị redirect về login page không
+            if await self.check_if_login_required():
+                print(f"{Fore.YELLOW}⚠ Facebook yêu cầu login để xem group này")
+
+                if skip_login:
+                    print(f"{Fore.YELLOW}💡 Group này không phải public hoặc cần login để xem")
+                    print(f"{Fore.YELLOW}   Bạn có muốn login không? (y/n)")
+                    user_choice = input(f"{Fore.CYAN}> ").strip().lower()
+
+                    if user_choice == 'y':
+                        await self.wait_for_login()
+                        # Navigate lại sau khi login
+                        await self.page.goto(group_url, wait_until='networkidle', timeout=60000)
+                        await asyncio.sleep(3)
+                    else:
+                        print(f"{Fore.RED}✗ Không thể tiếp tục mà không login")
+                        return []
 
             # Scroll và load posts
             await self.scroll_and_load_posts(max_scrolls=50)
@@ -332,6 +399,8 @@ class FacebookGroupScraper:
             # Cleanup
             if self.context:
                 await self.context.close()
+            if self.playwright:
+                await self.playwright.stop()
 
     def save_results(self, posts: List[dict], output_file: str = None):
         """
@@ -391,6 +460,14 @@ async def main():
     days = input(f"{Fore.YELLOW}📅 Lấy posts trong bao nhiêu ngày qua? (mặc định 7): {Fore.WHITE}").strip()
     days = int(days) if days.isdigit() else 7
 
+    # Hỏi về public group
+    is_public = input(f"{Fore.YELLOW}🌍 Group này có phải PUBLIC group không? (y/n, mặc định n): {Fore.WHITE}").strip().lower()
+    skip_login = is_public == 'y'
+
+    if skip_login:
+        print(f"{Fore.CYAN}💡 Sẽ thử truy cập mà không login (chỉ hoạt động với public groups)")
+        print(f"{Fore.CYAN}   Nếu không được, tool sẽ yêu cầu login sau")
+
     headless_input = input(f"{Fore.YELLOW}🖥️  Chạy ẩn browser? (y/n, mặc định n): {Fore.WHITE}").strip().lower()
     headless = headless_input == 'y'
 
@@ -399,7 +476,7 @@ async def main():
 
     try:
         # Scrape
-        posts = await scraper.scrape_group(group_url, days=days)
+        posts = await scraper.scrape_group(group_url, days=days, skip_login=skip_login)
 
         # Display results
         print(f"\n{Fore.CYAN}{'='*70}")
