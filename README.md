@@ -82,24 +82,30 @@ python facebook_group_scraper.py
    - Mặc định: 7 ngày (1 tuần)
    - Có thể nhập số khác (VD: 14, 30)
 
-3. **Chọn chế độ browser**
+3. **Chọn loại group**
+   - `y`: Group công khai (PUBLIC) - Thử không cần login
+   - `n` (mặc định): Group riêng tư - Cần login
+   - **Lưu ý**: Ngay cả public groups, Facebook đôi khi vẫn yêu cầu login
+
+4. **Chọn chế độ browser**
    - `n` (mặc định): Hiện browser - Dễ theo dõi và debug
    - `y`: Ẩn browser - Chạy nhanh hơn
 
-4. **Login Facebook** (chỉ lần đầu tiên)
+5. **Login Facebook** (nếu cần)
+   - Chỉ lần đầu tiên (hoặc nếu group không phải public)
    - Browser sẽ mở Facebook
    - Đăng nhập tài khoản của bạn
    - Nhấn Enter trong terminal sau khi login xong
    - Session sẽ được lưu lại, không cần login lại lần sau
 
-5. **Đợi tool chạy**
+6. **Đợi tool chạy**
    - Tool sẽ tự động:
      - Truy cập group
      - Scroll và load tất cả posts
      - Extract links và thông tin
      - Lưu kết quả
 
-6. **Xem kết quả**
+7. **Xem kết quả**
    - Hiển thị trên terminal
    - Lưu trong thư mục `output/`
      - `posts_YYYYMMDD_HHMMSS.json` - File JSON đầy đủ thông tin
@@ -147,9 +153,32 @@ https://www.facebook.com/groups/123456789/posts/987654323
 ...
 ```
 
+## 🌍 Public Groups vs Private Groups
+
+### Public Groups (Groups công khai):
+
+Tool có thể **thử** scrape mà không cần login, nhưng:
+
+**Ưu điểm**:
+- Không cần tài khoản Facebook
+- Không lo bị rate limit trên account
+
+**Nhược điểm**:
+- Facebook thường vẫn yêu cầu login sau vài posts
+- Không scroll được nhiều
+- Có thể bị block nhanh hơn
+
+**Khuyến nghị**: Nên login ngay cả với public groups để lấy được nhiều posts hơn
+
+### Private Groups (Groups riêng tư):
+
+**Bắt buộc** phải login bằng tài khoản đã tham gia group
+
 ## ⚠️ Lưu ý quan trọng
 
-1. **Tài khoản Facebook**: Cần tài khoản Facebook đã tham gia group muốn scrape
+1. **Tài khoản Facebook**:
+   - **Private groups**: Bắt buộc phải có tài khoản đã tham gia
+   - **Public groups**: Không bắt buộc nhưng khuyến nghị để lấy đầy đủ posts
 
 2. **Rate limiting**: Facebook có thể chặn nếu:
    - Scrape quá nhiều/quá nhanh
